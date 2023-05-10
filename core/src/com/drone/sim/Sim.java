@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g3d.*;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 
 import java.util.ArrayList;
@@ -14,11 +15,12 @@ import java.util.ArrayList;
 public class Sim implements ApplicationListener {
 	public PerspectiveCamera cam;
 	public ModelBatch modelBatch;
-	public Model payloadModel, sphere, ground;
+	public Model payloadModel, sphere, groundModel;
 	public ModelInstance[] ropes = new ModelInstance[4], drones = new ModelInstance[4];
-	public ModelInstance instance, payload;
+	public ModelInstance ground, payload;
 	public ArrayList<ModelInstance> instances = new ArrayList<>();
 	public Environment environment;
+	public ModelBuilder modelBuilder;
 
 	public CameraInputController camController;
 
@@ -37,20 +39,23 @@ public class Sim implements ApplicationListener {
 		cam.far = 300f;
 		cam.update();
 
-		ModelBuilder modelBuilder = new ModelBuilder();
+		modelBuilder = new ModelBuilder();
 
-		ground = modelBuilder.createBox(1000, 0.01f, 1000, new Material(ColorAttribute.createDiffuse(0.2f, 0.2f, 0.2f, 1f)),
+		groundModel = modelBuilder.createBox(1000, 0.01f, 1000, new Material(ColorAttribute.createDiffuse(0.2f, 0.2f, 0.2f, 1f)),
 				VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
 
-		instance = new ModelInstance(ground);
-		instance.transform.translate(0, -0.01f, 0);
+		ground = new ModelInstance(groundModel);
+		ground.transform.translate(0, -0.01f, 0);
 
 		payloadModel = modelBuilder.createBox(kinematics.payloadW, kinematics.payloadH, kinematics.payloadL,
 				new Material(ColorAttribute.createDiffuse(Color.GRAY)),
 				VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
 
 		payload = new ModelInstance(payloadModel);
-		payload.transform.translate(kinematics.payload.pos.x, kinematics.payload.pos.z + kinematics.payloadH / 2, kinematics.payload.pos.y);
+		payload.transform.translate(Kinematics.toWorldPayload(kinematics.payload.pos));
+
+		instances.add(ground);
+		instances.add(payload);
 
 		sphere = modelBuilder.createSphere(kinematics.droneDiameter, kinematics.droneDiameter, kinematics.droneDiameter,
 				10, 10, new Material(ColorAttribute.createDiffuse(Color.BLUE)),
@@ -62,9 +67,18 @@ public class Sim implements ApplicationListener {
 			instances.add(drones[i]);
 		}
 
+		for(int i = 0; i < 4; ++i) {
+			modelBuilder.begin();
+			MeshPartBuilder builder = modelBuilder.part("line", 1, 3, new Material());
+			builder.setColor(Color.RED);
+			builder.line(Kinematics.toWorldNoOffset(kinematics.drones[i].pos),
+					Kinematics.toWorldNoOffset(kinematics.getRopeCorner(i)));
+			Model line = modelBuilder.end();
+			ropes[i] = new ModelInstance(line);
+			instances.add(ropes[i]);
+		}
+
 //		instances.add(new ModelInstance(sphere));
-		instances.add(instance);
-		instances.add(payload);
 
 		environment = new Environment();
 		environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.4f, 0.4f, 0.4f, 1f));
@@ -84,9 +98,27 @@ public class Sim implements ApplicationListener {
 		//WORLD: (x, y, z)
 		//LIBGDX: (x, z, y)
 
+		float dt = 0.01f;
+
 		camController.update();
 
-//		payloadInstance.transform.translate(kinematics.payload.vel);
+		kinematics.update(dt);
+
+		payload.transform.translate(Kinematics.toWorldNoOffset(kinematics.getDiff(kinematics.payload)));
+		for (int i = 0; i < 4; ++i) {
+			drones[i].transform.translate(Kinematics.toWorldNoOffset(kinematics.getDiff(kinematics.drones[i])));
+
+			modelBuilder.begin();
+			MeshPartBuilder builder = modelBuilder.part("line", 1, 3, new Material());
+			builder.setColor(Color.RED);
+			builder.line(Kinematics.toWorldNoOffset(kinematics.drones[i].pos),
+					Kinematics.toWorldNoOffset(kinematics.getRopeCorner(i)));
+			Model line = modelBuilder.end();
+
+			instances.remove(ropes[i]);
+			ropes[i] = new ModelInstance(line);
+			instances.add(ropes[i]);
+		}
 
 		Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 		Gdx.gl.glClearColor(0, 0, 0, 1);
