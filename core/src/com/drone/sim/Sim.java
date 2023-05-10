@@ -6,21 +6,17 @@ import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g3d.*;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
-import com.badlogic.gdx.graphics.g3d.environment.DirectionalShadowLight;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
-import com.badlogic.gdx.graphics.g3d.utils.DepthShaderProvider;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
-import com.badlogic.gdx.math.Vector3;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 
 public class Sim implements ApplicationListener {
 	public PerspectiveCamera cam;
 	public ModelBatch modelBatch;
-	public Model payload, sphere, ground;
-	public Model[] ropes = new Model[4], drones = new Model[4];
-	public ModelInstance instance, payloadInstance;
+	public Model payloadModel, sphere, ground;
+	public ModelInstance[] ropes = new ModelInstance[4], drones = new ModelInstance[4];
+	public ModelInstance instance, payload;
 	public ArrayList<ModelInstance> instances = new ArrayList<>();
 	public Environment environment;
 
@@ -49,19 +45,26 @@ public class Sim implements ApplicationListener {
 		instance = new ModelInstance(ground);
 		instance.transform.translate(0, -0.01f, 0);
 
-		payload = modelBuilder.createBox(kinematics.payloadW, kinematics.payloadH, kinematics.payloadL,
+		payloadModel = modelBuilder.createBox(kinematics.payloadW, kinematics.payloadH, kinematics.payloadL,
 				new Material(ColorAttribute.createDiffuse(Color.GRAY)),
 				VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
 
-		payloadInstance = new ModelInstance(payload);
-		payloadInstance.transform.translate(kinematics.payload.pos.x, kinematics.payload.pos.z + kinematics.payloadH / 2, kinematics.payload.pos.y);
+		payload = new ModelInstance(payloadModel);
+		payload.transform.translate(kinematics.payload.pos.x, kinematics.payload.pos.z + kinematics.payloadH / 2, kinematics.payload.pos.y);
 
-		sphere = modelBuilder.createSphere(1f, 1f, 1f, 10, 10, new Material(ColorAttribute.createDiffuse(Color.GREEN)),
+		sphere = modelBuilder.createSphere(kinematics.droneDiameter, kinematics.droneDiameter, kinematics.droneDiameter,
+				10, 10, new Material(ColorAttribute.createDiffuse(Color.BLUE)),
 				VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
 
-		instances.add(new ModelInstance(sphere));
+		for (int i = 0; i < 4; ++i) {
+			drones[i] = new ModelInstance(sphere);
+			drones[i].transform.translate(Kinematics.toWorldDrone(kinematics.drones[i].pos));
+			instances.add(drones[i]);
+		}
+
+//		instances.add(new ModelInstance(sphere));
 		instances.add(instance);
-		instances.add(payloadInstance);
+		instances.add(payload);
 
 		environment = new Environment();
 		environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.4f, 0.4f, 0.4f, 1f));
@@ -111,6 +114,6 @@ public class Sim implements ApplicationListener {
 	@Override
 	public void dispose () {
 		modelBatch.dispose();
-		payload.dispose();
+		payloadModel.dispose();
 	}
 }
