@@ -5,24 +5,31 @@ import com.badlogic.gdx.math.Vector3;
 public class Kinematics {
     public Position3 payload;
     public Position3[] drones = new Position3[4];
+
+    public Path3D curPath;
+
     public static float payloadW, payloadL, payloadH, payloadM, droneXYoffset, droneDiameter;
 
     public int[] cornerX = new int[]{1, -1, -1, 1};
     public int[] cornerY = new int[]{1, 1, -1, -1};
 
-    public Kinematics() {
-        payload = new Position3();
 
-//        payload.vel = new Vector3(0.01f, 0, 0);
+    public Kinematics(Position3 payload, Path3D curPath,
+                      float payloadW, float payloadL, float payloadH, float payloadM,
+                      float droneXYoffset, float droneDiameter) {
+        this.payload = payload;
+        this.curPath = curPath;
 
-        payloadW = 1; //m
-        payloadL = 1;
-        payloadH = 1;
+        payload.vel = new Vector3(0, 0, 0.1f);
 
-        payloadM = 10; //kg
+        Kinematics.payloadW = payloadW; //m
+        Kinematics.payloadL = payloadL;
+        Kinematics.payloadH = payloadH;
 
-        droneXYoffset = 0.3f;
-        droneDiameter = 0.2f;
+        Kinematics.payloadM = payloadM; //kg
+
+        Kinematics.droneXYoffset = droneXYoffset;
+        Kinematics.droneDiameter = droneDiameter;
 
         for (int i = 0; i < 4; ++i) {
             drones[i] = new Position3();
@@ -32,10 +39,7 @@ public class Kinematics {
 
             drones[i].vel = new Vector3(0, 0, 0.2f);
             drones[i].accel = new Vector3(0, 0, 0.1f);
-
-            System.out.println(drones[i].pos);
         }
-
 
     }
 
