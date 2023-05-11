@@ -6,6 +6,8 @@ public class Kinematics {
     public Position3 payload;
     public Position3[] drones = new Position3[4];
 
+    public Vector3 closest, prevClosest;
+
     public Path3D curPath;
 
     public static float payloadW, payloadL, payloadH, payloadM, droneXYoffset, droneDiameter;
@@ -20,7 +22,7 @@ public class Kinematics {
         this.payload = payload;
         this.curPath = curPath;
 
-        payload.vel = new Vector3(0, 0, 0.1f);
+        payload.vel = new Vector3(0.3f, 0, 0.3f);
 
         Kinematics.payloadW = payloadW; //m
         Kinematics.payloadL = payloadL;
@@ -37,9 +39,12 @@ public class Kinematics {
                     cornerX[i], cornerY[i], 0
             ).add(payload.pos);
 
-            drones[i].vel = new Vector3(0, 0, 0.2f);
-            drones[i].accel = new Vector3(0, 0, 0.1f);
+            drones[i].vel = new Vector3(0, 0, 0.3f);
+            drones[i].accel = new Vector3(0, 0, 0f);
         }
+
+        closest = curPath.spline.getClosestPoint(payload.pos);
+        prevClosest = closest.cpy();
 
     }
 
@@ -48,10 +53,16 @@ public class Kinematics {
         for(int i = 0; i < 4; ++i) {
             drones[i].update(dt);
         }
+        prevClosest = closest;
+        closest = curPath.spline.getClosestPoint(payload.pos);
     }
 
     public Vector3 getDiff(Position3 p) {
         return p.pos.cpy().add(p.prev.cpy().scl(-1));
+    }
+
+    public Vector3 getClosestDiff() {
+        return closest.cpy().add(prevClosest.cpy().scl(-1));
     }
 
     public static Vector3 toWorld(Vector3 in, float yOffset) {

@@ -19,7 +19,7 @@ public class Sim implements ApplicationListener {
 	public ModelBatch modelBatch;
 	public Model payloadModel, sphere, groundModel;
 	public ModelInstance[] ropes = new ModelInstance[4], drones = new ModelInstance[4];
-	public ModelInstance ground, payload;
+	public ModelInstance ground, payload, closest;
 	public ArrayList<ModelInstance> instances = new ArrayList<>();
 	public Environment environment;
 	public ModelBuilder modelBuilder;
@@ -55,7 +55,7 @@ public class Sim implements ApplicationListener {
 
 		renderSpline();
 
-		payloadModel = modelBuilder.createBox(kinematics.payloadW, kinematics.payloadH, kinematics.payloadL,
+		payloadModel = modelBuilder.createBox(Kinematics.payloadW, Kinematics.payloadH, Kinematics.payloadL,
 				new Material(ColorAttribute.createDiffuse(Color.GRAY)),
 				VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
 
@@ -63,7 +63,15 @@ public class Sim implements ApplicationListener {
 		payload.transform.translate(Kinematics.toWorldPayload(kinematics.payload.pos));
 		instances.add(payload);
 
-		sphere = modelBuilder.createSphere(kinematics.droneDiameter, kinematics.droneDiameter, kinematics.droneDiameter,
+		sphere = modelBuilder.createSphere(0.2f, 0.2f, 0.2f,
+				10, 10, new Material(ColorAttribute.createDiffuse(Color.YELLOW)),
+				VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
+
+		closest = new ModelInstance(sphere);
+		closest.transform.translate(Kinematics.toWorldNoOffset(kinematics.closest));
+		instances.add(closest);
+
+		sphere = modelBuilder.createSphere(Kinematics.droneDiameter, Kinematics.droneDiameter, Kinematics.droneDiameter,
 				10, 10, new Material(ColorAttribute.createDiffuse(Color.BLUE)),
 				VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
 
@@ -94,10 +102,10 @@ public class Sim implements ApplicationListener {
 		kinematics = new Kinematics(new Position3(),
 				new Path3D(
 						new CubicHermite3D(
-								new Vector3(0, 0, 0),
-								new Vector3(5, 0, 5),
-								new Vector3(0, 0, 5),
-								new Vector3(0, 5, 0)
+								new Vector3(1, 1, 0),
+								new Vector3(5, 5, 5),
+								new Vector3(0, 0, 10),
+								new Vector3(0, 10, 0)
 						), 0.5f, 0.25f, 0.25f
 				),
 				1f, 1f, 1f,
@@ -117,6 +125,7 @@ public class Sim implements ApplicationListener {
 			ropes[i] = createRope(i);
 			instances.add(ropes[i]);
 		}
+		closest.transform.translate(Kinematics.toWorldNoOffset(kinematics.getClosestDiff()));
 	}
 
 	@Override
@@ -173,11 +182,6 @@ public class Sim implements ApplicationListener {
 		Vector3 ac = n.cpy().crs(cs).nor();
 
 		ins.transform.rotateTowardDirection(ac, Vector3.Y);
-
-
-//		ins.transform.rotate(ins.transform.rot, 90f);
-//		Quaternion q = new Quaternion();
-//		ins.transform.getRotation(q);
 		return ins;
 	}
 
