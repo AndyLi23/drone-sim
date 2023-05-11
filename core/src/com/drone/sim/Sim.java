@@ -19,7 +19,7 @@ public class Sim implements ApplicationListener {
 	public ModelBatch modelBatch;
 	public Model payloadModel, sphere, groundModel;
 	public ModelInstance[] ropes = new ModelInstance[4], drones = new ModelInstance[4];
-	public ModelInstance ground, payload, closest;
+	public ModelInstance ground, payload, closest, lookahead;
 	public ArrayList<ModelInstance> instances = new ArrayList<>();
 	public Environment environment;
 	public ModelBuilder modelBuilder;
@@ -68,8 +68,16 @@ public class Sim implements ApplicationListener {
 				VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
 
 		closest = new ModelInstance(sphere);
-		closest.transform.translate(Kinematics.toWorldNoOffset(kinematics.closest));
+		closest.transform.translate(Kinematics.toWorldNoOffset(kinematics.curPath.closest));
 		instances.add(closest);
+
+		sphere = modelBuilder.createSphere(0.2f, 0.2f, 0.2f,
+				10, 10, new Material(ColorAttribute.createDiffuse(Color.ORANGE)),
+				VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
+
+		lookahead = new ModelInstance(sphere);
+		lookahead.transform.translate(Kinematics.toWorldNoOffset(kinematics.curPath.lookaheadPoint));
+		instances.add(lookahead);
 
 		sphere = modelBuilder.createSphere(Kinematics.droneDiameter, Kinematics.droneDiameter, Kinematics.droneDiameter,
 				10, 10, new Material(ColorAttribute.createDiffuse(Color.BLUE)),
@@ -106,7 +114,7 @@ public class Sim implements ApplicationListener {
 								new Vector3(5, 5, 5),
 								new Vector3(0, 0, 10),
 								new Vector3(0, 10, 0)
-						), 0.5f, 0.25f, 0.25f
+						), 1f, 0.5f, 0.25f, 0.25f
 				),
 				1f, 1f, 1f,
 				10f, 0.3f, 0.2f);
@@ -126,6 +134,7 @@ public class Sim implements ApplicationListener {
 			instances.add(ropes[i]);
 		}
 		closest.transform.translate(Kinematics.toWorldNoOffset(kinematics.getClosestDiff()));
+		lookahead.transform.translate(Kinematics.toWorldNoOffset(kinematics.getLookaheadDiff()));
 	}
 
 	@Override

@@ -111,6 +111,10 @@ public class CubicHermite3D {
         return get(findClosestPointOnSpline(point, 50, 5));
     }
 
+    public float findClosestPointOnSpline(Vector3 point) {
+        return this.findClosestPointOnSpline(point, 50, 5);
+    }
+
     public float findClosestPointOnSpline(Vector3 point, int steps, int iterations) {
 
         double cur_dist = Double.POSITIVE_INFINITY;
@@ -173,5 +177,23 @@ public class CubicHermite3D {
         double z_a = p.z - point.z;
 
         return 2 * (d1.x * d1.x + x_a * d2.x + d1.y * d1.y + y_a * d2.y + d1.z * d1.z + z_a * d2.z);
+    }
+
+    public float getTFromLength(float length) {
+        float t = length / this.length;
+
+        for(int i = 0; i < 5; i++) {
+            //magnitude of the derivative
+            float derivativeMagnitude = get(t, 1).len();
+
+            //Newton's method: length remaining length divided by derivative
+            if(derivativeMagnitude > 0.0) {
+                t -= (getGaussianQuadratureLength(0, t) - length) / derivativeMagnitude;
+                //Clamp to [0, 1]
+                t = Math.min(1, Math.max(t, 0));
+            }
+        }
+
+        return t;
     }
 }
