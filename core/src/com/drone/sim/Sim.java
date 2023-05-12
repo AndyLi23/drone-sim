@@ -38,7 +38,7 @@ public class Sim implements ApplicationListener {
 		modelBatch = new ModelBatch();
 
 		cam = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-		cam.position.set(4f, 4f, 4f);
+		cam.position.set(20f, 20f, 20f);
 		cam.lookAt(0,0,0);
 		cam.near = 1f;
 		cam.far = 300f;
@@ -101,7 +101,7 @@ public class Sim implements ApplicationListener {
 		environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -0.2f, -0.8f, -1f));
 
 		camController = new CameraInputController(cam);
-		Gdx.input.setInputProcessor(camController);
+//		Gdx.input.setInputProcessor(camController);
 
 //		instances.add(cylinder(kinematics.curPath.spline.pos0, kinematics.curPath.spline.pos1, 0.01f, Color.RED));
 	}
@@ -116,8 +116,8 @@ public class Sim implements ApplicationListener {
 								new Vector3(0, 10, 0)
 						), 1f, 0.5f, 0.25f, 0.25f
 				),
-				1f, 1f, 1f,
-				10f, 0.3f, 0.2f);
+				1f, 1f, 1f, 10f,
+				0.2f, 0f, 0.2f, 2f);
 	}
 
 	public void updateKinematics() {
@@ -149,8 +149,6 @@ public class Sim implements ApplicationListener {
 
 		camController.update();
 
-		updateKinematics();
-
 		Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 		Gdx.gl.glClearColor(0, 0, 0, 1);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
@@ -158,6 +156,8 @@ public class Sim implements ApplicationListener {
 		modelBatch.begin(cam);
 		modelBatch.render(instances, environment);
 		modelBatch.end();
+
+		updateKinematics();
 	}
 
 	public ModelInstance createRope(int i) {
