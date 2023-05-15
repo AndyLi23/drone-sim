@@ -26,7 +26,7 @@ public class Sim implements ApplicationListener {
 
 	public CameraInputController camController;
 
-
+	public int ind = 0;
 
 	public static Kinematics kinematics;
 	
@@ -38,7 +38,7 @@ public class Sim implements ApplicationListener {
 		modelBatch = new ModelBatch();
 
 		cam = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-		cam.position.set(4f, 4f, 4f);
+		cam.position.set(-3f, 5f, -3f);
 		cam.lookAt(0,0,0);
 		cam.near = 1f;
 		cam.far = 300f;
@@ -46,12 +46,30 @@ public class Sim implements ApplicationListener {
 
 		modelBuilder = new ModelBuilder();
 
-		groundModel = modelBuilder.createBox(1000, 0.01f, 1000, new Material(ColorAttribute.createDiffuse(0.2f, 0.2f, 0.2f, 1f)),
+		groundModel = modelBuilder.createBox(100, 0.01f, 100, new Material(ColorAttribute.createDiffuse(0.8f, 0.8f, 0.8f, 1f)),
 				VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
 
 		ground = new ModelInstance(groundModel);
 		ground.transform.translate(0, -0.01f, 0);
 		instances.add(ground);
+
+		for(int x = -50; x <= 50; ++x) {
+			modelBuilder.begin();
+			MeshPartBuilder builder = modelBuilder.part("line", 1, 3, new Material());
+			builder.setColor(Color.DARK_GRAY);
+			builder.line(x, 0.0f, -50, x, 0.0f, 50);
+			Model lineModel = modelBuilder.end();
+			instances.add(new ModelInstance(lineModel));
+		}
+
+		for(int z = -50; z <= 50; ++z) {
+			modelBuilder.begin();
+			MeshPartBuilder builder = modelBuilder.part("line", 1, 3, new Material());
+			builder.setColor(Color.DARK_GRAY);
+			builder.line(-50, 0.0f, z, 50, 0.0f, z);
+			Model lineModel = modelBuilder.end();
+			instances.add(new ModelInstance(lineModel));
+		}
 
 		renderSpline();
 
@@ -116,16 +134,19 @@ public class Sim implements ApplicationListener {
 								new Vector3(0, 10, 0)
 						), 1f, 0.5f, 0.25f, 0.25f
 				),
-				1f, 1f, 1f,
-				10f, 0.3f, 0.2f);
+				0.5f, 0.5f, 0.5f,
+				10f, 1f, 0.2f);
 	}
 
 	public void updateKinematics() {
-		float dt = 1 / 60f;
+		kinematics.update(ind);
 
-		kinematics.update(dt);
+		ind++;
 
 		payload.transform.translate(Kinematics.toWorldNoOffset(kinematics.getDiff(kinematics.payload)));
+		cam.translate(Kinematics.toWorldNoOffset(kinematics.getDiff(kinematics.payload)));
+		cam.lookAt(Kinematics.toWorldNoOffset(kinematics.payload.pos));
+		cam.update();
 		for (int i = 0; i < 4; ++i) {
 			drones[i].transform.translate(Kinematics.toWorldNoOffset(kinematics.getDiff(kinematics.drones[i])));
 
@@ -186,11 +207,13 @@ public class Sim implements ApplicationListener {
 		ModelInstance ins = new ModelInstance(cyl);
 		ins.transform.translate(to.cpy().add(from).scl(0.5f));
 
-		Vector3 n = to.cpy().add(from.cpy().scl(-1));
-		Vector3 cs = n.cpy().crs(Vector3.Y).nor();
-		Vector3 ac = n.cpy().crs(cs).nor();
+		if (!(from.x == to.x && from.z == to.z)) {
+			Vector3 n = to.cpy().add(from.cpy().scl(-1));
+			Vector3 cs = n.cpy().crs(Vector3.Y).nor();
+			Vector3 ac = n.cpy().crs(cs).nor();
 
-		ins.transform.rotateTowardDirection(ac, Vector3.Y);
+			ins.transform.rotateTowardDirection(ac, Vector3.Y);
+		}
 		return ins;
 	}
 

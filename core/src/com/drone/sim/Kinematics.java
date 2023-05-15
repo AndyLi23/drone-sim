@@ -1,6 +1,15 @@
 package com.drone.sim;
 
 import com.badlogic.gdx.math.Vector3;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
 
 public class Kinematics {
     public Position3 payload;
@@ -8,20 +17,23 @@ public class Kinematics {
 
     public Path3D curPath;
 
-    public static float payloadW, payloadL, payloadH, payloadM, droneXYoffset, droneDiameter;
+    public static float payloadW, payloadL, payloadH, payloadM, ropeLength, droneDiameter;
 
     public int[] cornerX = new int[]{1, -1, -1, 1};
     public int[] cornerY = new int[]{1, 1, -1, -1};
 
+    public ArrayList<Vector3> payloadPos = new ArrayList<>();
+    public ArrayList<ArrayList<Vector3>> dronePos = new ArrayList<>();
+
 
     public Kinematics(Position3 payload, Path3D curPath,
                       float payloadW, float payloadL, float payloadH, float payloadM,
-                      float droneXYoffset, float droneDiameter) {
+                      float ropeLength, float droneDiameter) {
         this.payload = payload;
         this.curPath = curPath;
         curPath.init(this);
 
-        payload.vel = new Vector3(0.3f, 0, 0.3f);
+//        payload.vel = new Vector3(0.3f, 0, 0.3f);
 
         Kinematics.payloadW = payloadW; //m
         Kinematics.payloadL = payloadL;
@@ -29,27 +41,64 @@ public class Kinematics {
 
         Kinematics.payloadM = payloadM; //kg
 
-        Kinematics.droneXYoffset = droneXYoffset;
+        Kinematics.ropeLength = ropeLength;
         Kinematics.droneDiameter = droneDiameter;
 
         for (int i = 0; i < 4; ++i) {
             drones[i] = new Position3();
-            drones[i].pos = new Vector3(payloadW / 2f + droneXYoffset, payloadL / 2f + droneXYoffset, 0).scl(
-                    cornerX[i], cornerY[i], 0
+            drones[i].pos = new Vector3(payloadW / 2f, payloadL / 2f, payloadH + ropeLength).scl(
+                    cornerX[i], cornerY[i], 1
             ).add(payload.pos);
 
-            drones[i].vel = new Vector3(0, 0, 0.3f);
-            drones[i].accel = new Vector3(0, 0, 0f);
+//            drones[i].vel = new Vector3(0, 0, 0.3f);
+//            drones[i].accel = new Vector3(0, 0, 0f);
+        }
+
+        try {
+            loadData();
+        } catch (IOException | ParseException e) {
+            throw new RuntimeException(e);
         }
 
     }
 
-    public void update(float dt) {
-        payload.update(dt);
-        for(int i = 0; i < 4; ++i) {
-            drones[i].update(dt);
+    public void loadData() throws IOException, ParseException {
+        JSONObject obj = (JSONObject) new JSONParser().parse(new FileReader("assets/data.json"));
+        JSONArray pl = (JSONArray) obj.get("payload");
+        for (Object a : pl.toArray()) {
+            JSONArray temp = (JSONArray) a;
+            payloadPos.add(new Vector3(Float.parseFloat(String.valueOf(temp.get(0))),
+                    Float.parseFloat(String.valueOf(temp.get(1))),
+                    Float.parseFloat(String.valueOf(temp.get(2))) - 0.5f));
         }
-        curPath.update();
+
+        for(int i = 1; i < 5; ++i) {
+            pl = (JSONArray) obj.get("drone" + i);
+            ArrayList<Vector3> ta = new ArrayList<>();
+
+            for (Object a : pl.toArray()) {
+                JSONArray temp = (JSONArray) a;
+                ta.add(new Vector3(Float.parseFloat(String.valueOf(temp.get(0))),
+                        Float.parseFloat(String.valueOf(temp.get(1))),
+                        Float.parseFloat(String.valueOf(temp.get(2)))));
+            }
+
+            dronePos.add(ta);
+        }
+
+        System.out.println(dronePos);
+
+    }
+
+    public void update(int ind) {
+        if (ind < payloadPos.size()) {
+            payload.update(payloadPos.get(ind));
+            for (int i = 0; i < 4; ++i) drones[i].update(dronePos.get(i).get(ind));
+            curPath.update();
+        } else {
+            payload.prev = payload.pos.cpy();
+            for (int i = 0; i < 4; ++i) drones[i].prev = drones[i].pos.cpy();
+        }
     }
 
     public Vector3 getDiff(Position3 p) {
