@@ -1,5 +1,7 @@
 package com.drone.sim;
 
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.math.Vector3;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -17,18 +19,19 @@ public class Kinematics {
 
     public Path3D curPath;
 
-    public static float payloadW, payloadL, payloadH, payloadM, ropeLength, droneDiameter;
+    public static float payloadW, payloadL, payloadH, payloadM, ropeLength, droneDiameter, droneM;
 
     public int[] cornerX = new int[]{1, -1, -1, 1};
     public int[] cornerY = new int[]{1, 1, -1, -1};
 
     public ArrayList<Vector3> payloadPos = new ArrayList<>();
     public ArrayList<ArrayList<Vector3>> dronePos = new ArrayList<>();
+    public ArrayList<Vector3> forces = new ArrayList<>();
 
 
     public Kinematics(Position3 payload, Path3D curPath,
                       float payloadW, float payloadL, float payloadH, float payloadM,
-                      float ropeLength, float droneDiameter) {
+                      float ropeLength, float droneDiameter, float droneM) {
         this.payload = payload;
         this.curPath = curPath;
         curPath.init(this);
@@ -43,6 +46,7 @@ public class Kinematics {
 
         Kinematics.ropeLength = ropeLength;
         Kinematics.droneDiameter = droneDiameter;
+        Kinematics.droneM = droneM;
 
         for (int i = 0; i < 4; ++i) {
             drones[i] = new Position3();
@@ -63,13 +67,17 @@ public class Kinematics {
     }
 
     public void loadData() throws IOException, ParseException {
-        JSONObject obj = (JSONObject) new JSONParser().parse(new FileReader("assets/data.json"));
+        JSONObject obj = (JSONObject) new JSONParser().parse(new FileReader("assets/" + (Sim.path ? "data-pf" : "data-rand") + ".json"));
         JSONArray pl = (JSONArray) obj.get("payload");
         for (Object a : pl.toArray()) {
             JSONArray temp = (JSONArray) a;
             payloadPos.add(new Vector3(Float.parseFloat(String.valueOf(temp.get(0))),
                     Float.parseFloat(String.valueOf(temp.get(1))),
                     Float.parseFloat(String.valueOf(temp.get(2))) - 0.5f));
+
+            forces.add(new Vector3(Float.parseFloat(String.valueOf(temp.get(3))),
+                    Float.parseFloat(String.valueOf(temp.get(4))),
+                    Float.parseFloat(String.valueOf(temp.get(5)))));
         }
 
         for(int i = 1; i < 5; ++i) {
@@ -86,8 +94,6 @@ public class Kinematics {
             dronePos.add(ta);
         }
 
-        System.out.println(dronePos);
-
     }
 
     public void update(int ind) {
@@ -98,6 +104,15 @@ public class Kinematics {
         } else {
             payload.prev = payload.pos.cpy();
             for (int i = 0; i < 4; ++i) drones[i].prev = drones[i].pos.cpy();
+            curPath.prevLookaheadPoint = curPath.lookaheadPoint.cpy();
+            curPath.prevClosest = curPath.closest.cpy();
+        }
+    }
+
+    public void updatePath(int ind, Sim sim) {
+        if (ind < payloadPos.size()) {
+            sim.instances.add(sim.cylinder(payload.pos, payload.prev, 0.02f, new Color(0f, 0.8f, 1f, 1f),
+                    VertexAttributes.Usage.Position));
         }
     }
 
@@ -129,6 +144,14 @@ public class Kinematics {
         return new Vector3(payloadW / 2f, payloadL / 2f, payloadH).scl(
                 cornerX[i], cornerY[i], 1
         ).add(payload.pos);
+    }
+
+    public Vector3 getForceEnd(int i, int ind) {
+        if (ind < forces.size()) {
+            return drones[i].pos.cpy().add(forces.get(ind).cpy().scl(0.03f));
+        } else {
+            return drones[i].pos.cpy().add(forces.get(forces.size() - 1).cpy().scl(0.03f));
+        }
     }
 
     public static Vector3 toWorldNoOffset(Vector3 in) {
