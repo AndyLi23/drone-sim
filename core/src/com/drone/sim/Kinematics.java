@@ -13,6 +13,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 
+import java.util.Arrays;
+
 public class Kinematics {
     public Position3 payload;
     public Position3[] drones = new Position3[4];
@@ -27,7 +29,6 @@ public class Kinematics {
     public ArrayList<Vector3> payloadPos = new ArrayList<>();
     public ArrayList<ArrayList<Vector3>> dronePos = new ArrayList<>();
     public ArrayList<Vector3> forces = new ArrayList<>();
-
 
     public Kinematics(Position3 payload, Path3D curPath,
                       float payloadW, float payloadL, float payloadH, float payloadM,
@@ -53,6 +54,7 @@ public class Kinematics {
             drones[i].pos = new Vector3(payloadW / 2f, payloadL / 2f, payloadH + ropeLength).scl(
                     cornerX[i], cornerY[i], 1
             ).add(payload.pos);
+            drones[i].prev = drones[i].pos.cpy();
 
 //            drones[i].vel = new Vector3(0, 0, 0.3f);
 //            drones[i].accel = new Vector3(0, 0, 0f);
@@ -92,9 +94,6 @@ public class Kinematics {
             }
 
             dronePos.add(ta);
-        }
-
-    }
 
     public void update(int ind) {
         if (ind < payloadPos.size()) {
@@ -114,6 +113,65 @@ public class Kinematics {
             sim.instances.add(sim.cylinder(payload.pos, payload.prev, 0.02f, new Color(0f, 0.8f, 1f, 1f),
                     VertexAttributes.Usage.Position));
         }
+    }
+
+    public void physics(Vector3[] droneForces) {
+        Vector3 payloadMg = g.cpy().scl(payloadM);
+//        if(payload.pos.z <= 1e-6) payloadMg = Vector3.Zero;
+
+        Vector3 droneMg = g.cpy().scl(droneM);
+
+        Vector3 totalForces = new Vector3();
+        Vector3 totalTensions = new Vector3();
+
+        for (int i = 0; i < 4; ++i) {
+            Vector3 payloadToDrone = drones[i].pos.cpy().add(getRopeCorner(i).scl(-1));
+            Vector3 tensionNorm = payloadToDrone.cpy().nor();
+            totalTensions.add(tensionNorm);
+            double dist = payloadToDrone.len();
+
+//            if(dist < ropeLength) {
+//                drones[i].accel = (droneMg.cpy().add(droneForces[i])).scl(1/droneM);
+//            } else {
+            Vector3 effectiveForce = droneForces[i].cpy().add(droneMg);
+            float forceParallelMagnitude = effectiveForce.cpy().dot(tensionNorm);
+            Vector3 forceParallel = tensionNorm.cpy().scl(forceParallelMagnitude);
+
+            Vector3 forcePerpendicular = effectiveForce.cpy().sub(forceParallel);
+
+            Vector3 arad = forcePerpendicular.cpy().scl(1 / droneM);
+
+
+            totalForces.add(forceParallel);
+
+            drones[i].accel = arad;
+        }
+
+        payload.accel = totalForces.cpy().add(payloadMg).scl(1/(payloadM)); //subtract drag here
+
+        Vector3 tensions = payload.accel.cpy().scl(payloadM).sub(payloadMg); //add drag here
+
+        float tensionMag = tensions.z / totalTensions.z;
+
+        System.out.println(tensions + " " + totalTensions + " " + totalTensions.cpy().scl(tensionMag));
+
+//        System.out.println(tensionMag);
+
+        for(int i = 0; i < 4; ++i) {
+            Vector3 payloadToDrone = drones[i].pos.cpy().add(getRopeCorner(i).scl(-1));
+            Vector3 tensionNorm = payloadToDrone.cpy().nor();
+            Vector3 tension = tensionNorm.cpy().scl(-tensionMag);
+
+            Vector3 effectiveForce = droneForces[i].cpy().add(droneMg);
+            float forceParallelMagnitude = effectiveForce.cpy().dot(tensionNorm);
+            Vector3 forceParallel = tensionNorm.cpy().scl(forceParallelMagnitude);
+
+            drones[i].accel.add(forceParallel.cpy().add(tension.cpy()).scl(1/droneM));
+//            drones[i].accel.add(payload.accel.cpy());
+        }
+
+        System.out.println(drones[0].accel + " " + payload.accel);
+
     }
 
     public Vector3 getDiff(Position3 p) {

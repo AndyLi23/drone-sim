@@ -24,9 +24,14 @@ public class Position3 {
     }
 
     public void update(float dt) {
-        this.prev = pos.cpy();
+        Vector3 temp = pos.cpy();
+        pos.add(pos.cpy().add(prev.cpy().scl(-1)).add(accel.cpy().scl(dt * dt)));
+        prev = temp;
+//        vel.add(accel.cpy().scl(dt));
+//        pos.add(vel.cpy().scl(dt));
+    }
 
-        pos.add(vel.cpy().scl(dt).add(accel.cpy().scl(0.5f * dt * dt)));
-        vel.add(accel.cpy().scl(dt));
+    public Vector3 vel() {
+        return pos.cpy().add(prev.cpy().scl(-1));
     }
 }
