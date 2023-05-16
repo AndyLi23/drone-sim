@@ -29,7 +29,7 @@ public class Sim implements ApplicationListener {
 
 	public static Kinematics kinematics;
 
-	public static boolean path = false;
+	public static boolean path = true;
 	
 	@Override
 	public void create () {
