@@ -18,6 +18,11 @@ public class Position3 {
         this.prev = pos.cpy();
     }
 
+    public void update(Vector3 new_) {
+        this.prev = pos.cpy();
+        this.pos = new_;
+    }
+
     public void update(float dt) {
         Vector3 temp = pos.cpy();
         pos.add(pos.cpy().add(prev.cpy().scl(-1)).add(accel.cpy().scl(dt * dt)));

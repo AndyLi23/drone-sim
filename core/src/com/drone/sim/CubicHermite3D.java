@@ -145,7 +145,7 @@ public class CubicHermite3D {
             //if distance is less than previous min, update distance and t
             double cur_d = get(cur_t).dst(point);
 
-            if(cur_d < cur_dist && cur_t >= 0 && cur_t <= 1) {
+            if(cur_d < cur_dist) {
                 cur_dist = cur_d;
                 cur_min = cur_t;
             }

@@ -1,8 +1,17 @@
 package com.drone.sim;
 
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.math.Vector3;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
 
 import java.util.Arrays;
 
@@ -12,17 +21,18 @@ public class Kinematics {
 
     public Path3D curPath;
 
-    public static float payloadW, payloadL, payloadH, payloadM, droneXYoffset, droneDiameter, droneM, ropeLength;
+    public static float payloadW, payloadL, payloadH, payloadM, ropeLength, droneDiameter, droneM;
 
     public int[] cornerX = new int[]{1, -1, -1, 1};
     public int[] cornerY = new int[]{1, 1, -1, -1};
 
-    public Vector3 g = new Vector3(0, 0, -9.807f);
-
+    public ArrayList<Vector3> payloadPos = new ArrayList<>();
+    public ArrayList<ArrayList<Vector3>> dronePos = new ArrayList<>();
+    public ArrayList<Vector3> forces = new ArrayList<>();
 
     public Kinematics(Position3 payload, Path3D curPath,
                       float payloadW, float payloadL, float payloadH, float payloadM,
-                      float droneM, float droneXYoffset, float droneDiameter, float ropeLength) {
+                      float ropeLength, float droneDiameter, float droneM) {
         this.payload = payload;
         this.curPath = curPath;
         curPath.init(this);
@@ -35,15 +45,13 @@ public class Kinematics {
 
         Kinematics.payloadM = payloadM; //kg
 
-        Kinematics.droneM = droneM;
-        Kinematics.droneXYoffset = droneXYoffset;
-        Kinematics.droneDiameter = droneDiameter;
         Kinematics.ropeLength = ropeLength;
+        Kinematics.droneDiameter = droneDiameter;
+        Kinematics.droneM = droneM;
 
         for (int i = 0; i < 4; ++i) {
             drones[i] = new Position3();
-            drones[i].pos = new Vector3(payloadW / 2f + droneXYoffset, payloadL / 2f + droneXYoffset,
-                    payloadH + ropeLength).scl(
+            drones[i].pos = new Vector3(payloadW / 2f, payloadL / 2f, payloadH + ropeLength).scl(
                     cornerX[i], cornerY[i], 1
             ).add(payload.pos);
             drones[i].prev = drones[i].pos.cpy();
@@ -52,37 +60,59 @@ public class Kinematics {
 //            drones[i].accel = new Vector3(0, 0, 0f);
         }
 
+        try {
+            loadData();
+        } catch (IOException | ParseException e) {
+            throw new RuntimeException(e);
+        }
+
     }
 
-    public void update(float dt) {
+    public void loadData() throws IOException, ParseException {
+        JSONObject obj = (JSONObject) new JSONParser().parse(new FileReader("assets/" + (Sim.path ? "data-pf" : "data-rand") + ".json"));
+        JSONArray pl = (JSONArray) obj.get("payload");
+        for (Object a : pl.toArray()) {
+            JSONArray temp = (JSONArray) a;
+            payloadPos.add(new Vector3(Float.parseFloat(String.valueOf(temp.get(0))),
+                    Float.parseFloat(String.valueOf(temp.get(1))),
+                    Float.parseFloat(String.valueOf(temp.get(2))) - 0.5f));
 
-        Vector3 linForce = new Vector3();
-
-        linForce.z = 27f;
-
-        if(Gdx.input.isKeyPressed(Input.Keys.W)) {
-            linForce.z += 5f;
+            forces.add(new Vector3(Float.parseFloat(String.valueOf(temp.get(3))),
+                    Float.parseFloat(String.valueOf(temp.get(4))),
+                    Float.parseFloat(String.valueOf(temp.get(5)))));
         }
 
-        if(Gdx.input.isKeyPressed(Input.Keys.A)) {
-            linForce.x -= 5f;
-        }
+        for(int i = 1; i < 5; ++i) {
+            pl = (JSONArray) obj.get("drone" + i);
+            ArrayList<Vector3> ta = new ArrayList<>();
 
-        if(Gdx.input.isKeyPressed(Input.Keys.S)) {
-            linForce.z -= 5f;
-        }
+            for (Object a : pl.toArray()) {
+                JSONArray temp = (JSONArray) a;
+                ta.add(new Vector3(Float.parseFloat(String.valueOf(temp.get(0))),
+                        Float.parseFloat(String.valueOf(temp.get(1))),
+                        Float.parseFloat(String.valueOf(temp.get(2)))));
+            }
 
-        if(Gdx.input.isKeyPressed(Input.Keys.D)) {
-            linForce.x += 5f;
-        }
+            dronePos.add(ta);
 
-        physics(new Vector3[]{linForce, linForce, linForce, linForce});
-
-        payload.update(dt);
-        for(int i = 0; i < 4; ++i) {
-            drones[i].update(dt);
+    public void update(int ind) {
+        if (ind < payloadPos.size()) {
+            payload.update(payloadPos.get(ind));
+            for (int i = 0; i < 4; ++i) drones[i].update(dronePos.get(i).get(ind));
+            curPath.update();
+        } else {
+            payload.prev = payload.pos.cpy();
+            for (int i = 0; i < 4; ++i) drones[i].prev = drones[i].pos.cpy();
+            curPath.prevLookaheadPoint = curPath.lookaheadPoint.cpy();
+            curPath.prevClosest = curPath.closest.cpy();
         }
-        curPath.update();
+    }
+
+    public void updatePath(int ind, Sim sim) {
+        if (ind < payloadPos.size()) {
+            sim.instances.add(sim.cylinder(payload.pos, payload.prev, 0.02f, new Color(0f, 0.8f, 1f, 1f),
+                    VertexAttributes.Usage.Position));
+        }
     }
 
     public void physics(Vector3[] droneForces) {
@@ -172,6 +202,14 @@ public class Kinematics {
         return new Vector3(payloadW / 2f, payloadL / 2f, payloadH).scl(
                 cornerX[i], cornerY[i], 1
         ).add(payload.pos);
+    }
+
+    public Vector3 getForceEnd(int i, int ind) {
+        if (ind < forces.size()) {
+            return drones[i].pos.cpy().add(forces.get(ind).cpy().scl(0.03f));
+        } else {
+            return drones[i].pos.cpy().add(forces.get(forces.size() - 1).cpy().scl(0.03f));
+        }
     }
 
     public static Vector3 toWorldNoOffset(Vector3 in) {
